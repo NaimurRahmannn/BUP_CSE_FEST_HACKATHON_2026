@@ -15,6 +15,6 @@ Usage:
     constraints = parse_and_compile([raw_dict], battery_capacity=200)
 """
 
-from .parser import parse_operator_note
+from .parser import parse_operator_note, parse_operator_notes
 
-__all__ = ["parse_operator_note"]
+__all__ = ["parse_operator_note", "parse_operator_notes"]

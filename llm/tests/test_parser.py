@@ -17,9 +17,10 @@ from unittest.mock import patch
 
 import pytest
 
-from llm import parse_operator_note
+from llm import parse_operator_note, parse_operator_notes
 from directives import parse_and_compile
 from optimizer import optimize_energy
+from optimizer.validator import validate
 from optimizer.models import EnergyScenario, HourData, BatteryConfig
 
 
@@ -51,6 +52,7 @@ def test_clear_solar_reduction():
     assert result["hours"] == [12, 13]
     assert result["factor"] == 0.25
     assert result["source_note_id"] == 1
+    assert result["parse_status"] == "success"
 
 
 # ===========================================================================
@@ -132,17 +134,19 @@ def test_invalid_llm_output():
     with mock_call_llm("This is not JSON!"):
         result = parse_operator_note(7, "Some note")
     assert result["type"] == "no_op"
-    assert "PARSER FAILED" in result["raw_text"]
+    assert result["parse_status"] == "validation_failed"
     
     # 2. Valid JSON, but violates schema (unsupported type)
     with mock_call_llm({"type": "invented_action"}):
         result = parse_operator_note(8, "Some note")
     assert result["type"] == "no_op"
+    assert result["parse_status"] == "validation_failed"
 
     # 3. Valid JSON, but violates schema (wrong type for factor)
     with mock_call_llm({"type": "solar_reduction", "hours": [12], "factor": "a lot"}):
         result = parse_operator_note(9, "Some note")
     assert result["type"] == "no_op"
+    assert result["parse_status"] == "validation_failed"
 
 
 # ===========================================================================
@@ -188,3 +192,90 @@ def test_end_to_end_integration():
     
     # Verify optimizer succeeded
     assert result.success is True
+
+# ===========================================================================
+# Phase 3.5 Hardening Tests
+# ===========================================================================
+
+def test_gemini_timeout():
+    """Test 9: Gemini timeout triggers safe fallback with metadata."""
+    with patch("llm.parser.call_llm", side_effect=TimeoutError("API Timeout")):
+        result = parse_operator_note(11, "Note text")
+        
+    assert result["type"] == "no_op"
+    assert result["parse_status"] == "llm_error"
+    assert "API Timeout" in result["error_message"]
+
+
+def test_multiple_notes():
+    """Test 10: Multiple notes parsed independently."""
+    notes = [
+        {"id": 1, "text": "Solar output reduced to 20% from 1 PM to 3 PM"},
+        {"id": 2, "text": "Do not charge battery from 6 PM to 8 PM"}
+    ]
+    
+    # We mock call_llm to return sequentially using side_effect
+    outputs = [
+        json.dumps({"type": "solar_reduction", "hours": [13, 14], "factor": 0.2}),
+        json.dumps({"type": "no_charge_window", "hours": [18, 19]})
+    ]
+    
+    with patch("llm.parser.call_llm", side_effect=outputs):
+        results = parse_operator_notes(notes)
+        
+    assert len(results) == 2
+    assert results[0]["type"] == "solar_reduction"
+    assert results[0]["source_note_id"] == 1
+    assert results[0]["raw_text"] == notes[0]["text"]
+    assert results[0]["parse_status"] == "success"
+    
+    assert results[1]["type"] == "no_charge_window"
+    assert results[1]["source_note_id"] == 2
+    assert results[1]["raw_text"] == notes[1]["text"]
+
+
+def test_invalid_hours_caught_early():
+    """Test 11: Invalid hours rejected before compiler."""
+    with mock_call_llm({"type": "no_charge_window", "hours": [25]}):
+        result = parse_operator_note(12, "Invalid hour")
+        
+    assert result["type"] == "no_op"
+    assert result["parse_status"] == "validation_failed"
+    assert "out of range" in result["error_message"]
+
+
+def test_full_pipeline_integration():
+    """Test 12: Full pipeline integration (Note -> Parser -> Compiler -> Optimizer -> Validator)."""
+    # 1. Operator Note
+    note = "Panel washing from noon to 2 PM leaves only 25 percent solar output."
+    
+    # 2. Mock LLM output
+    expected_llm_out = {"type": "solar_reduction", "hours": [12, 13, 14], "factor": 0.25}
+    with mock_call_llm(expected_llm_out):
+        raw_dict = parse_operator_note(13, note)
+    
+    # 3. Directive Compiler
+    battery_capacity = 200.0
+    constraints = parse_and_compile([raw_dict], battery_capacity=battery_capacity)
+    
+    # 4. Optimizer
+    hours = [
+        HourData(hour=h, demand_kwh=100, solar_kwh=50, tariff_bdt_per_kwh=10)
+        for h in range(24)
+    ]
+    battery = BatteryConfig(
+        capacity_kwh=battery_capacity,
+        initial_energy_kwh=100,
+        minimum_energy_kwh=20,
+        max_charge_kwh_per_hour=50,
+        max_discharge_kwh_per_hour=50,
+    )
+    scenario = EnergyScenario(hours=hours, battery=battery)
+    schedule = optimize_energy(scenario, directives=constraints)
+    
+    assert schedule.success is True
+    
+    # 5. Validator
+    # If this returns errors, the schedule is invalid.
+    errors = validate(schedule, scenario, constraints)
+    assert len(errors) == 0, f"Validator errors: {errors}"

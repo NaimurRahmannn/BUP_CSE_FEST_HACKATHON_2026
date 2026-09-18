@@ -7,7 +7,7 @@ structured JSON that matches the Phase 2 Directive Compiler expectations.
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LLMDirectiveOutput(BaseModel):
@@ -49,6 +49,31 @@ class LLMDirectiveOutput(BaseModel):
         default=None,
         description="For max_grid_window: the maximum allowed grid import."
     )
+
+    @field_validator("hours", check_fields=False)
+    @classmethod
+    def _validate_hours(cls, v: Optional[list[int]]) -> Optional[list[int]]:
+        if v is not None:
+            for h in v:
+                if not (0 <= h <= 23):
+                    raise ValueError(f"Hour {h} out of range 0-23")
+            # Remove duplicates and sort
+            v = sorted(list(set(v)))
+        return v
+
+    @field_validator("factor", check_fields=False)
+    @classmethod
+    def _validate_factor(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not (0 < v <= 1):
+            raise ValueError(f"Factor {v} must be between (0, 1]")
+        return v
+
+    @field_validator("minimum_energy_kwh", "max_grid_kwh", check_fields=False)
+    @classmethod
+    def _validate_non_negative(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
+            raise ValueError(f"Energy limit {v} cannot be negative")
+        return v
 
     def to_phase2_dict(self) -> dict:
         """Converts to a dictionary suitable for directives.parse_and_compile."""
