@@ -95,6 +95,64 @@ The core endpoint is `POST /optimize-energy`. It accepts a 24-hour scenario, bat
 
 For detailed request/response JSON schemas, see [API_USAGE.md](docs/API_USAGE.md).
 
+### Request Example
+```json
+{
+  "scenario_id": "EXAMPLE-01",
+  "hours": [
+    {"hour": 0, "demand_kwh": 30, "solar_kwh": 0, "tariff_bdt_per_kwh": 5}
+  ],
+  "battery": {
+    "capacity_kwh": 200,
+    "initial_energy_kwh": 50,
+    "minimum_energy_kwh": 10,
+    "max_charge_kwh_per_hour": 50,
+    "max_discharge_kwh_per_hour": 50
+  },
+  "operator_notes": [
+    "Solar output reduced to 0% from 1 PM to 3 PM",
+    "Do not charge battery during peak hours"
+  ]
+}
+```
+
+### Response Example
+```json
+{
+  "scenario_id": "EXAMPLE-01",
+  "directive_interpretation": [
+    {
+      "note_index": 0,
+      "applies": true,
+      "directive_type": "solar_reduction",
+      "structured_adjustment": {
+        "hours": [13, 14],
+        "factor": 0.0
+      },
+      "explanation": "Processed note 'Solar output reduced...' as solar_reduction"
+    }
+  ],
+  "hourly_plan": [
+    {
+      "hour": 0,
+      "grid_kwh": 10.5,
+      "battery_energy_after_kwh": 60.5,
+      "battery_kwh": 10.5
+    }
+  ],
+  "summary": {
+    "total_grid_kwh": 120.0,
+    "total_cost_bdt": 650.0,
+    "peak_grid_kwh": 50.0,
+    "plan_summary": "Optimized schedule. Cost: 650.0 BDT."
+  },
+  "validation": {
+    "success": true,
+    "errors": []
+  }
+}
+```
+
 ## 🐳 8. Deployment Instructions
 
 The application is containerized and available on the GitHub Container Registry (GHCR).
@@ -114,3 +172,7 @@ The application is containerized and available on the GitHub Container Registry 
    ```bash
    curl http://localhost:8000/health
    ```
+
+## ⚠️ 9. Known Limitations
+- **LLM Latency / Sequential Execution:** Operator notes are currently processed sequentially by Gemini 3 Flash. While this guarantees deterministic outputs and limits batch hallucination risk, processing 3 heavily complex notes on a slow network may approach the 10-second LLM processing limit. The system gracefully degrades to a `no_op` if it is about to violate the 30-second maximum timeout ceiling.
+- **Factor Boundaries:** Non-operational notes or directives that are completely ambiguous (e.g., "The weather is bad") will be explicitly dropped and interpreted as `no_op` to protect mathematical optimality.
