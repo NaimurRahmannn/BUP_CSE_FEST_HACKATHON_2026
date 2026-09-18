@@ -15,7 +15,7 @@ from config import Settings
 client = TestClient(app, raise_server_exceptions=False)
 
 
-def build_scenario_payload(scenario_id: str, notes: list[dict] = None) -> dict:
+def build_scenario_payload(scenario_id: str, notes: list[str] = None) -> dict:
     """Helper to build a realistic 24-hour competition payload."""
     # A generic curve: low demand at night, solar in day, peak demand in evening.
     hours = []
@@ -78,8 +78,8 @@ def test_scenario_1_normal_operation():
 def test_scenario_2_multiple_operator_notes():
     """Test 2: Multiple independent directives processed successfully."""
     notes = [
-        {"id": 1, "text": "Solar is reduced by 50% between 10:00 and 12:00 due to maintenance."},
-        {"id": 2, "text": "Do not discharge the battery at 19:00"}
+        "Solar is reduced by 50% between 10:00 and 12:00 due to maintenance.",
+        "Do not discharge the battery at 19:00"
     ]
     payload = build_scenario_payload("COMP-SCENARIO-2", notes)
     
@@ -98,12 +98,12 @@ def test_scenario_2_multiple_operator_notes():
     
     interp = data["directive_interpretation"]
     assert len(interp) == 2
-    assert interp[0]["parsed_directive"]["type"] == "solar_reduction"
-    assert interp[1]["parsed_directive"]["type"] == "no_discharge_window"
+    assert interp[0]["directive_type"] == "solar_reduction"
+    assert interp[1]["directive_type"] == "no_discharge_window"
     
     # Verify the optimizer actually respected the no-discharge window
     plan_hour_19 = next(h for h in data["hourly_plan"] if h["hour"] == 19)
-    assert plan_hour_19["battery_action"] != "discharge"
+    assert plan_hour_19["battery_kwh"] >= 0.0
 
 
 # ===========================================================================
@@ -111,7 +111,7 @@ def test_scenario_2_multiple_operator_notes():
 # ===========================================================================
 def test_scenario_3_irrelevant_notes():
     """Test 3: Non-operational notes are mapped to no_op."""
-    notes = [{"id": 3, "text": "Team meeting at 3 PM in the main conference room."}]
+    notes = ["Team meeting at 3 PM in the main conference room."]
     payload = build_scenario_payload("COMP-SCENARIO-3", notes)
     
     with patch("llm.parser.call_llm", return_value=json.dumps({"type": "no_op"})):
@@ -120,7 +120,7 @@ def test_scenario_3_irrelevant_notes():
     assert response.status_code == 200
     data = response.json()
     assert data["validation"]["success"] is True
-    assert data["directive_interpretation"][0]["parsed_directive"]["type"] == "no_op"
+    assert data["directive_interpretation"][0]["directive_type"] == "no_op"
 
 
 # ===========================================================================
@@ -128,7 +128,7 @@ def test_scenario_3_irrelevant_notes():
 # ===========================================================================
 def test_scenario_4_llm_failure_simulation():
     """Test 4: If the LLM throws an error (e.g. timeout), it safely falls back."""
-    notes = [{"id": 4, "text": "Battery reserve 50kWh at 5 AM"}]
+    notes = ["Battery reserve 50kWh at 5 AM"]
     payload = build_scenario_payload("COMP-SCENARIO-4", notes)
     
     with patch("llm.parser.call_llm", side_effect=Exception("Connection timed out")):
@@ -142,8 +142,8 @@ def test_scenario_4_llm_failure_simulation():
     
     # The parsing should show an error status
     interp = data["directive_interpretation"][0]
-    assert interp["parse_status"] == "llm_error"
-    assert interp["parsed_directive"]["type"] == "no_op"
+    assert interp["applies"] is False
+    assert interp["directive_type"] == "no_op"
 
 
 # ===========================================================================
@@ -157,7 +157,7 @@ def test_scenario_5_impossible_optimization():
     payload["battery"]["minimum_energy_kwh"] = 0
     payload["battery"]["max_discharge_kwh_per_hour"] = 0.001 # Practically no battery help
     
-    notes = [{"id": 5, "text": "Zero grid import allowed at 20:00"}]
+    notes = ["Zero grid import allowed at 20:00"]
     payload["operator_notes"] = notes
     
     # At 20:00, demand is 120 and solar is 0. If grid is capped at 0 and battery cannot discharge,

@@ -64,8 +64,8 @@ class LLMDirectiveOutput(BaseModel):
     @field_validator("factor", check_fields=False)
     @classmethod
     def _validate_factor(cls, v: Optional[float]) -> Optional[float]:
-        if v is not None and not (0 < v <= 1):
-            raise ValueError(f"Factor {v} must be between (0, 1]")
+        if v is not None and not (0 <= v <= 1):
+            raise ValueError(f"Factor {v} must be between [0, 1]")
         return v
 
     @field_validator("minimum_energy_kwh", "max_grid_kwh", check_fields=False)

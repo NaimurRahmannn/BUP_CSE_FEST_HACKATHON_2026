@@ -29,16 +29,11 @@ class BatteryRequest(BaseModel):
     max_discharge_kwh_per_hour: float = Field(..., gt=0)
 
 
-class OperatorNoteRequest(BaseModel):
-    id: int
-    text: str
-
-
 class OptimizeRequest(BaseModel):
     scenario_id: str
     hours: List[HourDataRequest]
     battery: BatteryRequest
-    operator_notes: Optional[List[OperatorNoteRequest]] = None
+    operator_notes: Optional[List[str]] = None
 
     @field_validator("hours")
     @classmethod
@@ -59,24 +54,25 @@ class OptimizeRequest(BaseModel):
 # ===========================================================================
 
 class DirectiveInterpretationResponse(BaseModel):
-    original_note_id: int
-    raw_text: str
-    parsed_directive: dict[str, Any]
-    parse_status: str
+    note_index: int
+    applies: bool
+    directive_type: str
+    structured_adjustment: dict[str, Any]
+    explanation: str
 
 
 class HourlyPlanResponse(BaseModel):
     hour: int
-    grid_import_kwh: float
-    solar_used_kwh: float
-    battery_action: str
-    battery_energy_kwh: float
+    grid_kwh: float
+    battery_energy_after_kwh: float
+    battery_kwh: float
 
 
 class SummaryResponse(BaseModel):
     total_grid_kwh: float
     total_cost_bdt: float
     peak_grid_kwh: float
+    plan_summary: str
 
 
 class ValidationResponse(BaseModel):

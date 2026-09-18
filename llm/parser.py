@@ -8,9 +8,12 @@ ready for the compiler.
 
 import json
 import logging
+import time
 from typing import Any
 
 from pydantic import ValidationError
+
+from config import settings
 
 from .client import call_llm
 from .schemas import LLMDirectiveOutput
@@ -28,9 +31,18 @@ def parse_operator_notes(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         List of parsed directive dictionaries, preserving source metadata.
     """
     directives = []
+    start_time = time.time()
+    
     for note in notes:
+        # Check global timeout across notes. We leave 1.0 second buffer for compiler & optimizer overhead.
+        if time.time() - start_time > settings.llm_timeout_seconds - 1.0:
+            logger.warning("LLM global timeout approaching, falling back to no_op for remaining notes.")
+            directives.append(_safe_fallback(note["id"], note["text"], "llm_error", "Global pipeline timeout reached."))
+            continue
+            
         d = parse_operator_note(note["id"], note["text"])
         directives.append(d)
+        
     return directives
 
 

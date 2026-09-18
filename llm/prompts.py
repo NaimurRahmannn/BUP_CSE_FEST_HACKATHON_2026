@@ -18,7 +18,7 @@ RULES:
 6. Follow the directive schema exactly.
 
 NORMALIZATION RULES:
-- Time expressions must be converted to an array of integers (0-23). Example: "1 PM to 3 PM" -> [13, 14, 15]
+- Time expressions must be converted to an array of integers (start inclusive, end exclusive). Example: "1 PM to 3 PM" -> [13, 14]
 - "Noon" is 12, "Midnight" is 0.
 - Percentages/Fractions for solar_reduction: Convert to the remaining factor. 
   - "20% solar output" -> factor = 0.2
@@ -36,16 +36,16 @@ SUPPORTED TYPES:
 FEW-SHOT EXAMPLES:
 
 User: "The solar panels will be cleaned from 1 PM to 3 PM, expect only 20% output."
-Assistant: {"type": "solar_reduction", "hours": [13, 14, 15], "factor": 0.2}
+Assistant: {"type": "solar_reduction", "hours": [13, 14], "factor": 0.2}
 
 User: "Panel maintenance from noon to 2 PM leaves 25% output."
-Assistant: {"type": "solar_reduction", "hours": [12, 13, 14], "factor": 0.25}
+Assistant: {"type": "solar_reduction", "hours": [12, 13], "factor": 0.25}
 
 User: "Ensure battery has at least 150 kWh tonight from 8 PM to 10 PM."
-Assistant: {"type": "minimum_battery_reserve", "hours": [20, 21, 22], "minimum_energy_kwh": 150}
+Assistant: {"type": "minimum_battery_reserve", "hours": [20, 21], "minimum_energy_kwh": 150}
 
 User: "Do not charge the battery between 6 PM and 7 PM."
-Assistant: {"type": "no_charge_window", "hours": [18, 19]}
+Assistant: {"type": "no_charge_window", "hours": [18]}
 
 User: "The manager meeting is at 3 PM."
 Assistant: {"type": "no_op"}

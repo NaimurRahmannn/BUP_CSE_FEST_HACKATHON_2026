@@ -97,16 +97,16 @@ For detailed request/response JSON schemas, see [API_USAGE.md](docs/API_USAGE.md
 
 ## 🐳 8. Deployment Instructions
 
-The application is fully containerized for production deployment.
+The application is containerized and available on the GitHub Container Registry (GHCR).
 
-1. **Build the Docker Image:**
+1. **Pull the Docker Image:**
    ```bash
-   docker build -t gridwise-llm:latest .
+   docker pull ghcr.io/naimur-rahmannn/gridwise-llm:latest
    ```
 
 2. **Run the Container:**
    ```bash
-   docker run -p 8000:8000 --env-file .env gridwise-llm:latest
+   docker run -p 8000:8000 --env-file .env ghcr.io/naimur-rahmannn/gridwise-llm:latest
    ```
 
 3. **Health Check:**

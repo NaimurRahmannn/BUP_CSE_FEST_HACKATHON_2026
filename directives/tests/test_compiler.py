@@ -68,8 +68,8 @@ def test_valid_solar_reduction():
 # ===========================================================================
 
 def test_invalid_solar_factor():
-    # Factor <= 0
-    raw1 = [{"type": "solar_reduction", "hours": [12], "factor": 0}]
+    # Factor < 0
+    raw1 = [{"type": "solar_reduction", "hours": [12], "factor": -0.1}]
     with pytest.raises(InvalidParameterError):
         parse_and_compile(raw1, battery_capacity=200)
 

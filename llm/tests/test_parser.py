@@ -244,13 +244,23 @@ def test_invalid_hours_caught_early():
     assert "out of range" in result["error_message"]
 
 
+def test_solar_zero():
+    """Test 12: Zero factor is allowed."""
+    with mock_call_llm({"type": "solar_reduction", "hours": [12], "factor": 0.0}):
+        result = parse_operator_note(14, "Solar output unavailable at noon")
+        
+    assert result["type"] == "solar_reduction"
+    assert result["factor"] == 0.0
+    assert result["parse_status"] == "success"
+
+
 def test_full_pipeline_integration():
-    """Test 12: Full pipeline integration (Note -> Parser -> Compiler -> Optimizer -> Validator)."""
+    """Test 13: Full pipeline integration (Note -> Parser -> Compiler -> Optimizer -> Validator)."""
     # 1. Operator Note
     note = "Panel washing from noon to 2 PM leaves only 25 percent solar output."
     
     # 2. Mock LLM output
-    expected_llm_out = {"type": "solar_reduction", "hours": [12, 13, 14], "factor": 0.25}
+    expected_llm_out = {"type": "solar_reduction", "hours": [12, 13], "factor": 0.25}
     with mock_call_llm(expected_llm_out):
         raw_dict = parse_operator_note(13, note)
     

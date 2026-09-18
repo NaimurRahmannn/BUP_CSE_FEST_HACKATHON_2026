@@ -39,7 +39,7 @@ class BaseDirectiveModel(BaseModel):
 class SolarReductionDirective(BaseDirectiveModel):
     type: Literal["solar_reduction"]
     hours: list[int] = Field(..., min_length=1)
-    factor: float = Field(..., gt=0, le=1)
+    factor: float = Field(..., ge=0.0, le=1.0)
 
 
 class MinimumBatteryReserveDirective(BaseDirectiveModel):

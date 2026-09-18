@@ -72,8 +72,8 @@ def test_valid_optimization_request():
 # ===========================================================================
 def test_multiple_notes():
     notes = [
-        {"id": 1, "text": "Do not charge at 18:00"},
-        {"id": 2, "text": "Clean panels at noon, 50% solar"}
+        "Do not charge at 18:00",
+        "Clean panels at noon, 50% solar"
     ]
     payload = build_valid_request("TEST-02", notes)
     
@@ -92,17 +92,17 @@ def test_multiple_notes():
     
     interp = data["directive_interpretation"]
     assert len(interp) == 2
-    assert interp[0]["original_note_id"] == 1
-    assert interp[0]["parsed_directive"]["type"] == "no_charge_window"
-    assert interp[1]["original_note_id"] == 2
-    assert interp[1]["parsed_directive"]["type"] == "solar_reduction"
+    assert interp[0]["note_index"] == 0
+    assert interp[0]["directive_type"] == "no_charge_window"
+    assert interp[1]["note_index"] == 1
+    assert interp[1]["directive_type"] == "solar_reduction"
 
 
 # ===========================================================================
 # Test 4: Irrelevant operator note (no_op)
 # ===========================================================================
 def test_irrelevant_note():
-    notes = [{"id": 3, "text": "The manager is visiting today."}]
+    notes = ["The manager is visiting today."]
     payload = build_valid_request("TEST-03", notes)
     
     with patch("llm.parser.call_llm", return_value=json.dumps({"type": "no_op"})):
@@ -111,7 +111,8 @@ def test_irrelevant_note():
     assert response.status_code == 200
     data = response.json()
     assert data["validation"]["success"] is True
-    assert data["directive_interpretation"][0]["parsed_directive"]["type"] == "no_op"
+    assert data["directive_interpretation"][0]["directive_type"] == "no_op"
+    assert data["directive_interpretation"][0]["applies"] is False
 
 
 # ===========================================================================
@@ -131,7 +132,7 @@ def test_invalid_request_422():
 # Test 6: Mock LLM failure (safe fallback)
 # ===========================================================================
 def test_mock_llm_failure():
-    notes = [{"id": 4, "text": "Some text"}]
+    notes = ["Some text"]
     payload = build_valid_request("TEST-04", notes)
     
     with patch("llm.parser.call_llm", side_effect=TimeoutError("API Down")):
@@ -143,8 +144,8 @@ def test_mock_llm_failure():
     assert data["validation"]["success"] is True
     
     interp = data["directive_interpretation"][0]
-    assert interp["parse_status"] == "llm_error"
-    assert interp["parsed_directive"]["type"] == "no_op"
+    assert interp["applies"] is False
+    assert interp["directive_type"] == "no_op"
 
 
 # ===========================================================================
@@ -156,7 +157,7 @@ def test_impossible_optimization():
     # Since grid is technically unbound, to make it infeasible we can use a directive
     # that conflicts directly with reality.
     
-    notes = [{"id": 5, "text": "Max grid is 0 at 18:00"}]
+    notes = ["Max grid is 0 at 18:00"]
     payload["operator_notes"] = notes
     
     # We also need demand > solar at 18:00, which it is (100 > 50).
@@ -185,7 +186,7 @@ def test_full_pipeline_trace():
     Simulates a full pipeline trace:
     Request -> API -> LLM mock -> Compiler -> Optimizer -> Validator -> Response
     """
-    notes = [{"id": 99, "text": "Grid is constrained to 20 kWh at 7 PM"}]
+    notes = ["Grid is constrained to 20 kWh at 7 PM"]
     payload = build_valid_request("E2E-TRACE", notes)
     
     # LLM Mock
@@ -199,14 +200,14 @@ def test_full_pipeline_trace():
     
     # Verify interpretation (LLM -> Compiler mapping)
     assert len(data["directive_interpretation"]) == 1
-    assert data["directive_interpretation"][0]["parse_status"] == "success"
+    assert data["directive_interpretation"][0]["applies"] is True
     
     # Verify optimizer (Optimizer mapping)
     assert data["validation"]["success"] is True
     
     # Verify the grid cap was respected at hour 19 (Validator mapping)
     plan_hour_19 = next(h for h in data["hourly_plan"] if h["hour"] == 19)
-    assert plan_hour_19["grid_import_kwh"] <= 20.0
+    assert plan_hour_19["grid_kwh"] <= 20.0
     
     # Verify metadata (Test 5: Response metadata exists)
     assert data["solver_status"] == "OPTIMAL"

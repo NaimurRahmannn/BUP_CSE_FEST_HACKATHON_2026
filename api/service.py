@@ -58,19 +58,21 @@ def run_optimization(request: OptimizeRequest) -> OptimizeResponse:
     # 2. LLM Parsing
     raw_notes = []
     if request.operator_notes:
-        raw_notes = [{"id": note.id, "text": note.text} for note in request.operator_notes]
+        raw_notes = [{"id": i, "text": text} for i, text in enumerate(request.operator_notes)]
         
     parsed_json_directives = parse_operator_notes(raw_notes)
     
     # Track the interpretation for the HTTP response
     interpretations = []
     for d in parsed_json_directives:
+        dir_type = d.get("type", "unknown")
         interpretations.append(
             DirectiveInterpretationResponse(
-                original_note_id=d.get("source_note_id", -1),
-                raw_text=d.get("raw_text", ""),
-                parsed_directive={k: v for k, v in d.items() if k not in ("source_note_id", "raw_text", "parse_status")},
-                parse_status=d.get("parse_status", "unknown"),
+                note_index=d.get("source_note_id", -1),
+                applies=(d.get("parse_status", "unknown") == "success" and dir_type != "no_op"),
+                directive_type=dir_type,
+                structured_adjustment={k: v for k, v in d.items() if k not in ("source_note_id", "raw_text", "parse_status", "type", "confidence")},
+                explanation=f"Processed note '{d.get('raw_text', '')}' as {dir_type}" if dir_type != "no_op" else "Note was not actionable.",
             )
         )
         
@@ -118,10 +120,9 @@ def run_optimization(request: OptimizeRequest) -> OptimizeResponse:
     hourly_plan = [
         HourlyPlanResponse(
             hour=hp.hour,
-            grid_import_kwh=hp.grid_kwh,
-            solar_used_kwh=hp.solar_used_kwh,
-            battery_action=hp.battery_action.value,
-            battery_energy_kwh=hp.battery_energy_after_kwh,
+            grid_kwh=hp.grid_kwh,
+            battery_energy_after_kwh=hp.battery_energy_after_kwh,
+            battery_kwh=hp.battery_kwh if hp.battery_action.value == "charge" else -hp.battery_kwh if hp.battery_action.value == "discharge" else 0.0,
         )
         for hp in result.hourly_plan
     ]
@@ -130,6 +131,7 @@ def run_optimization(request: OptimizeRequest) -> OptimizeResponse:
         total_grid_kwh=result.total_grid_kwh,
         total_cost_bdt=result.total_cost_bdt,
         peak_grid_kwh=result.peak_grid_kwh,
+        plan_summary=f"Optimized schedule. Cost: {result.total_cost_bdt} BDT.",
     )
     
     validation = ValidationResponse(
