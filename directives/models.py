@@ -8,7 +8,7 @@ the directives are compiled into constraints for the optimizer (Phase 1).
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -16,6 +16,11 @@ from pydantic import BaseModel, Field, field_validator
 class BaseDirectiveModel(BaseModel):
     """Base class for incoming directives."""
     type: str
+
+    # Phase 2.5 Traceability Metadata
+    source_note_id: Optional[int] = None
+    raw_text: Optional[str] = None
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
     @field_validator("hours", check_fields=False)
     @classmethod

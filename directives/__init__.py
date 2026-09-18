@@ -11,6 +11,21 @@ Usage:
 """
 
 from .compiler import parse_and_compile
-from .validator import DirectiveValidationError
+from .errors import (
+    DirectiveError,
+    InvalidDirectiveTypeError,
+    InvalidParameterError,
+    InvalidHourError,
+    DirectiveConflictError,
+    UnsupportedDirectiveError,
+)
 
-__all__ = ["parse_and_compile", "DirectiveValidationError"]
+__all__ = [
+    "parse_and_compile",
+    "DirectiveError",
+    "InvalidDirectiveTypeError",
+    "InvalidParameterError",
+    "InvalidHourError",
+    "DirectiveConflictError",
+    "UnsupportedDirectiveError",
+]

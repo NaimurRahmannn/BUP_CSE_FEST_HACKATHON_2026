@@ -17,7 +17,13 @@ Covers:
 import pytest
 import random
 
-from directives import parse_and_compile, DirectiveValidationError
+from directives import (
+    parse_and_compile, 
+    DirectiveConflictError,
+    InvalidHourError,
+    InvalidParameterError,
+    UnsupportedDirectiveError
+)
 from optimizer.models import DirectiveType, EnergyScenario, HourData, BatteryConfig
 from optimizer import optimize_energy
 
@@ -64,12 +70,12 @@ def test_valid_solar_reduction():
 def test_invalid_solar_factor():
     # Factor <= 0
     raw1 = [{"type": "solar_reduction", "hours": [12], "factor": 0}]
-    with pytest.raises(ValueError, match="validation"):
+    with pytest.raises(InvalidParameterError):
         parse_and_compile(raw1, battery_capacity=200)
 
     # Factor > 1
     raw2 = [{"type": "solar_reduction", "hours": [12], "factor": 1.5}]
-    with pytest.raises(ValueError, match="validation"):
+    with pytest.raises(InvalidParameterError):
         parse_and_compile(raw2, battery_capacity=200)
 
 
@@ -140,15 +146,15 @@ def test_no_op_conversion():
 
 def test_invalid_hours():
     # Hour > 23
-    with pytest.raises(ValueError, match="validation"):
+    with pytest.raises(InvalidHourError):
         parse_and_compile([{"type": "no_charge_window", "hours": [24]}], 200)
     
     # Hour < 0
-    with pytest.raises(ValueError, match="validation"):
+    with pytest.raises(InvalidHourError):
         parse_and_compile([{"type": "no_charge_window", "hours": [-1]}], 200)
 
     # Duplicate hours
-    with pytest.raises(ValueError, match="validation"):
+    with pytest.raises(InvalidHourError):
         parse_and_compile([{"type": "no_charge_window", "hours": [12, 12]}], 200)
 
 
@@ -182,7 +188,7 @@ def test_conflicting_directives_fail():
     # Minimum reserve > battery capacity (explicit conflict check)
     raw = [{"type": "minimum_battery_reserve", "hours": [12], "minimum_energy_kwh": 250}]
     
-    with pytest.raises(DirectiveValidationError, match="exceeds battery capacity"):
+    with pytest.raises(DirectiveConflictError, match="exceeds battery capacity"):
         parse_and_compile(raw, battery_capacity=200)
 
 
@@ -226,3 +232,59 @@ def test_randomized_directive_validation(seed: int):
     # or DirectiveValidationError.
     constraints = parse_and_compile(raw_directives, battery_capacity=200.0)
     assert len(constraints) == num_directives
+
+
+# ===========================================================================
+# Phase 2.5 Hardening Tests
+# ===========================================================================
+
+def test_metadata_preserved():
+    """Test 11: DirectiveConstraint metadata is preserved."""
+    raw = [{
+        "type": "no_charge_window", 
+        "hours": [12],
+        "source_note_id": 42,
+        "raw_text": "Do not charge at noon",
+        "confidence": 0.95
+    }]
+    constraints = parse_and_compile(raw, battery_capacity=200)
+    
+    assert len(constraints) == 1
+    c = constraints[0]
+    assert c.source_note_id == 42
+    assert c.raw_text == "Do not charge at noon"
+    assert c.confidence == 0.95
+
+
+def test_confidence_validation():
+    """Test 12: Confidence validation."""
+    # Valid
+    raw = [{"type": "no_charge_window", "hours": [12], "confidence": 0.5}]
+    parse_and_compile(raw, battery_capacity=200)  # Should not raise
+    
+    # Invalid
+    raw_invalid = [{"type": "no_charge_window", "hours": [12], "confidence": 1.5}]
+    with pytest.raises(InvalidParameterError):
+        parse_and_compile(raw_invalid, battery_capacity=200)
+
+
+def test_invalid_hour_exception():
+    """Test 13: Invalid hour exception."""
+    raw = [{"type": "solar_reduction", "hours": [25], "factor": 0.5}]
+    with pytest.raises(InvalidHourError):
+        parse_and_compile(raw, battery_capacity=200)
+
+
+def test_invalid_parameter_exception():
+    """Test 14: Invalid parameter exception."""
+    raw = [{"type": "solar_reduction", "hours": [12], "factor": 2.0}]
+    with pytest.raises(InvalidParameterError):
+        parse_and_compile(raw, battery_capacity=200)
+
+
+def test_unsupported_directive_exception():
+    """Test 15: Unsupported directive exception."""
+    raw = [{"type": "unknown_action"}]
+    with pytest.raises(UnsupportedDirectiveError):
+        parse_and_compile(raw, battery_capacity=200)
+

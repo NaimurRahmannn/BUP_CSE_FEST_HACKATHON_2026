@@ -101,6 +101,11 @@ class DirectiveConstraint(BaseModel):
     # max_grid_window: maximum grid import per hour (kWh)
     max_grid_kwh: Optional[float] = Field(default=None, ge=0)
 
+    # ----- Phase 2.5 Traceability Metadata -----
+    source_note_id: Optional[int] = Field(default=None, description="ID of the source operator note")
+    raw_text: Optional[str] = Field(default=None, description="Original text of the operator note")
+    confidence: Optional[float] = Field(default=None, description="LLM extraction confidence")
+
     @field_validator("hours")
     @classmethod
     def _hours_valid(cls, v: list[int]) -> list[int]:
@@ -111,6 +116,13 @@ class DirectiveConstraint(BaseModel):
             raise ValueError("Hours must be unique")
         if v != sorted(v):
             raise ValueError("Hours must be in ascending order")
+        return v
+
+    @field_validator("confidence")
+    @classmethod
+    def _confidence_valid(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and not (0.0 <= v <= 1.0):
+            raise ValueError(f"Confidence {v} must be between 0 and 1")
         return v
 
 

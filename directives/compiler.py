@@ -14,7 +14,13 @@ from pydantic import TypeAdapter, ValidationError
 from optimizer.models import DirectiveConstraint, DirectiveType
 
 from .models import DirectiveModel
-from .validator import DirectiveValidationError, validate_directive_set
+from .errors import (
+    InvalidHourError,
+    InvalidParameterError,
+    UnsupportedDirectiveError,
+    DirectiveConflictError
+)
+from .validator import validate_directive_set
 
 # Pydantic TypeAdapter for parsing raw dicts into the discriminated union
 _directive_adapter = TypeAdapter(DirectiveModel)
@@ -44,7 +50,19 @@ def parse_and_compile(
             parsed = _directive_adapter.validate_python(raw)
             parsed_directives.append(parsed)
         except ValidationError as e:
-            raise ValueError(f"Invalid directive schema: {e}") from e
+            # Map Pydantic ValidationErrors to custom Phase 2.5 errors
+            for err in e.errors():
+                loc = err.get("loc", ())
+                err_type = err.get("type", "")
+                if "type" in loc or err_type == "union_tag_invalid":
+                    raise UnsupportedDirectiveError(f"Unsupported directive type: {raw.get('type')}") from e
+                elif "hours" in loc:
+                    raise InvalidHourError(f"Invalid hours: {err.get('msg')}") from e
+                elif any(p in loc for p in ("factor", "minimum_energy_kwh", "max_grid_kwh", "confidence")):
+                    raise InvalidParameterError(f"Invalid parameter in {loc}: {err.get('msg')}") from e
+            
+            # Fallback for other schema errors
+            raise InvalidParameterError(f"Invalid directive schema: {e}") from e
 
     # 2. Validate conflicts
     validate_directive_set(parsed_directives, battery_capacity)
@@ -52,51 +70,57 @@ def parse_and_compile(
     # 3. Compile to optimizer constraints
     constraints: list[DirectiveConstraint] = []
     for d in parsed_directives:
+        # Common metadata
+        base_kwargs = {
+            "hours": getattr(d, "hours", []),
+            "source_note_id": d.source_note_id,
+            "raw_text": d.raw_text,
+            "confidence": d.confidence,
+        }
+        
         if d.type == "solar_reduction":
             constraints.append(
                 DirectiveConstraint(
                     directive_type=DirectiveType.SOLAR_REDUCTION,
-                    hours=d.hours,
                     factor=d.factor,
+                    **base_kwargs
                 )
             )
         elif d.type == "minimum_battery_reserve":
             constraints.append(
                 DirectiveConstraint(
                     directive_type=DirectiveType.MINIMUM_BATTERY_RESERVE,
-                    hours=d.hours,
                     minimum_energy_kwh=d.minimum_energy_kwh,
+                    **base_kwargs
                 )
             )
         elif d.type == "no_charge_window":
             constraints.append(
                 DirectiveConstraint(
                     directive_type=DirectiveType.NO_CHARGE_WINDOW,
-                    hours=d.hours,
+                    **base_kwargs
                 )
             )
         elif d.type == "no_discharge_window":
             constraints.append(
                 DirectiveConstraint(
                     directive_type=DirectiveType.NO_DISCHARGE_WINDOW,
-                    hours=d.hours,
+                    **base_kwargs
                 )
             )
         elif d.type == "max_grid_window":
             constraints.append(
                 DirectiveConstraint(
                     directive_type=DirectiveType.MAX_GRID_WINDOW,
-                    hours=d.hours,
                     max_grid_kwh=d.max_grid_kwh,
+                    **base_kwargs
                 )
             )
         elif d.type == "no_op":
-            # Valid no_op directives compile to a NO_OP constraint or can be skipped.
-            # Passing it to the solver is harmless since the solver ignores NO_OP.
             constraints.append(
                 DirectiveConstraint(
                     directive_type=DirectiveType.NO_OP,
-                    hours=getattr(d, "hours", []),
+                    **base_kwargs
                 )
             )
 

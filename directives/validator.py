@@ -9,17 +9,13 @@ from __future__ import annotations
 
 from typing import Sequence
 
+from .errors import DirectiveConflictError
 from .models import (
     DirectiveModel,
     MinimumBatteryReserveDirective,
     NoChargeWindowDirective,
     NoDischargeWindowDirective,
 )
-
-
-class DirectiveValidationError(Exception):
-    """Raised when a set of directives contains conflicts."""
-    pass
 
 
 def validate_directive_set(directives: Sequence[DirectiveModel], battery_capacity: float) -> None:
@@ -30,7 +26,7 @@ def validate_directive_set(directives: Sequence[DirectiveModel], battery_capacit
         battery_capacity: The maximum capacity of the battery in kWh.
 
     Raises:
-        DirectiveValidationError: If a conflict or invalid state is detected.
+        DirectiveConflictError: If a conflict or invalid state is detected.
     """
     no_charge_hours: set[int] = set()
     no_discharge_hours: set[int] = set()
@@ -39,7 +35,7 @@ def validate_directive_set(directives: Sequence[DirectiveModel], battery_capacit
         # Check battery capacity limits
         if isinstance(d, MinimumBatteryReserveDirective):
             if d.minimum_energy_kwh > battery_capacity:
-                raise DirectiveValidationError(
+                raise DirectiveConflictError(
                     f"Minimum battery reserve ({d.minimum_energy_kwh} kWh) "
                     f"exceeds battery capacity ({battery_capacity} kWh)."
                 )
