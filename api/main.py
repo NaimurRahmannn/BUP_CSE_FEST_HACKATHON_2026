@@ -38,10 +38,10 @@ async def validation_exception_handler(request, exc):
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Catch any unhandled exceptions at the API boundary, returning a safe 500."""
-    logger.error(f"Unhandled system error: {exc}")
+    logger.exception("Unhandled system error:")
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error. Please contact an administrator."},
+        content={"detail": "Internal Server Error"},
     )
 
 

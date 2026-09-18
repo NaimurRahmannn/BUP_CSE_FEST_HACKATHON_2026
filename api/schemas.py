@@ -90,3 +90,8 @@ class OptimizeResponse(BaseModel):
     hourly_plan: Optional[List[HourlyPlanResponse]] = None
     summary: Optional[SummaryResponse] = None
     validation: ValidationResponse
+    
+    # Metadata
+    solver_status: Optional[str] = None
+    optimization_time_ms: Optional[float] = None
+    pipeline_version: Optional[str] = None

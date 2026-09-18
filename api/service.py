@@ -11,6 +11,7 @@ Orchestrates the entire GridWise pipeline:
 """
 
 import logging
+import time
 
 from api.schemas import (
     DirectiveInterpretationResponse,
@@ -20,6 +21,7 @@ from api.schemas import (
     SummaryResponse,
     ValidationResponse,
 )
+from config import settings
 from directives import parse_and_compile
 from llm import parse_operator_notes
 from optimizer import optimize_energy
@@ -76,30 +78,37 @@ def run_optimization(request: OptimizeRequest) -> OptimizeResponse:
     try:
         constraints = parse_and_compile(parsed_json_directives, battery_capacity=battery.capacity_kwh)
     except Exception as e:
-        logger.error(f"Directive compilation failed: {e}")
+        logger.exception("Directive compilation failed:")
         return OptimizeResponse(
             scenario_id=request.scenario_id,
             directive_interpretation=interpretations,
-            validation=ValidationResponse(success=False, errors=[f"Compilation Error: {e}"])
+            validation=ValidationResponse(success=False, errors=[f"Compilation Error: {e}"]),
+            pipeline_version=settings.pipeline_version,
         )
         
     # 4. Optimization
+    t0 = time.time()
     try:
         result = optimize_energy(scenario, constraints)
     except Exception as e:
-        logger.error(f"Optimization engine crashed: {e}")
+        logger.exception("Optimization engine crashed:")
         return OptimizeResponse(
             scenario_id=request.scenario_id,
             directive_interpretation=interpretations,
-            validation=ValidationResponse(success=False, errors=[f"Optimizer Error: {e}"])
+            validation=ValidationResponse(success=False, errors=[f"Optimizer Error: {e}"]),
+            pipeline_version=settings.pipeline_version,
         )
+    opt_time_ms = (time.time() - t0) * 1000.0
         
     # 5. Independent Validation
     if not result.success:
         return OptimizeResponse(
             scenario_id=request.scenario_id,
             directive_interpretation=interpretations,
-            validation=ValidationResponse(success=False, errors=["Optimizer reported infeasible model."])
+            validation=ValidationResponse(success=False, errors=["Optimizer reported infeasible model."]),
+            solver_status="FAILED",
+            optimization_time_ms=opt_time_ms,
+            pipeline_version=settings.pipeline_version,
         )
         
     # Validates in-place and sets result.validation_passed / result.validation_errors
@@ -134,4 +143,7 @@ def run_optimization(request: OptimizeRequest) -> OptimizeResponse:
         hourly_plan=hourly_plan,
         summary=summary,
         validation=validation,
+        solver_status="OPTIMAL",
+        optimization_time_ms=opt_time_ms,
+        pipeline_version=settings.pipeline_version,
     )

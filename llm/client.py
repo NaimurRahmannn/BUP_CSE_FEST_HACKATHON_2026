@@ -8,20 +8,19 @@ Loads credentials from .env.
 import os
 from typing import Any
 
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
 from .prompts import SYSTEM_PROMPT
 from .schemas import LLMDirectiveOutput
+from config import settings
 
-# Load environment variables
-load_dotenv()
-
-# Initialize the GenAI client
-_api_key = os.getenv("GOOGLE_GEMINI_API_KEY")
-_client = genai.Client(api_key=_api_key)
-_model_name = os.getenv("GOOGLE_GEMINI_MODEL", "gemini-3-flash")
+# Initialize the GenAI client using central settings
+_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options={"timeout": settings.llm_timeout_seconds}
+)
+_model_name = settings.gemini_model
 
 
 def call_llm(operator_note: str) -> dict[str, Any]:

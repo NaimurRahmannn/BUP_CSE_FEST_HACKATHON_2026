@@ -78,7 +78,7 @@ def parse_operator_note(note_id: int, text: str) -> dict[str, Any]:
 
     except Exception as e:
         # Catch network timeouts, API errors, etc.
-        logger.error(f"LLM API call failed: {e}")
+        logger.exception("LLM API call failed:")
         return _safe_fallback(note_id, text, "llm_error", str(e))
 
 

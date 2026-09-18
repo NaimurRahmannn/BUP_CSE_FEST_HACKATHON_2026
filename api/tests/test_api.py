@@ -5,13 +5,15 @@ Tests the FastAPI endpoints using TestClient.
 """
 
 import json
+import os
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from api.main import app
+from config import Settings
 
-client = TestClient(app)
+client = TestClient(app, raise_server_exceptions=False)
 
 
 def build_valid_request(scenario_id="TEST-01", notes=None):
@@ -205,3 +207,50 @@ def test_full_pipeline_trace():
     # Verify the grid cap was respected at hour 19 (Validator mapping)
     plan_hour_19 = next(h for h in data["hourly_plan"] if h["hour"] == 19)
     assert plan_hour_19["grid_import_kwh"] <= 20.0
+    
+    # Verify metadata (Test 5: Response metadata exists)
+    assert data["solver_status"] == "OPTIMAL"
+    assert data["optimization_time_ms"] >= 0.0
+    assert data["pipeline_version"] == "1.0"
+
+
+# ===========================================================================
+# Phase 4.5 API Hardening Tests
+# ===========================================================================
+
+def test_config_loading():
+    """Test 1: Environment values load correctly into config."""
+    with patch.dict(os.environ, {
+        "GOOGLE_GEMINI_API_KEY": "test-key",
+        "LLM_TIMEOUT_SECONDS": "15",
+        "SOLVER_TIMEOUT_SECONDS": "25",
+        "PIPELINE_VERSION": "2.0"
+    }):
+        s = Settings()
+        assert s.gemini_api_key == "test-key"
+        assert s.llm_timeout_seconds == 15
+        assert s.solver_timeout_seconds == 25
+        assert s.pipeline_version == "2.0"
+
+
+def test_missing_api_key():
+    """Test 2: Missing API key triggers clear configuration error."""
+    with patch.dict(os.environ, {}, clear=True), patch("config.load_dotenv"):
+        s = Settings()
+        try:
+            s.validate()
+            assert False, "Should have raised ValueError"
+        except ValueError as e:
+            assert "GOOGLE_GEMINI_API_KEY" in str(e)
+
+
+def test_unexpected_api_exception():
+    """Test 4: Unexpected API exception returns safe 500 response."""
+    payload = build_valid_request("TEST-ERROR")
+    
+    # We force a catastrophic crash in the service layer
+    with patch("api.main.run_optimization", side_effect=RuntimeError("System core meltdown")):
+        response = client.post("/optimize-energy", json=payload)
+        
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal Server Error"}

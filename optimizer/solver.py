@@ -13,6 +13,7 @@ the competition's 0.01 kWh / 0.01 BDT tolerance (Problem Statement §11.5).
 from __future__ import annotations
 
 from ortools.sat.python import cp_model
+from config import settings
 
 from .models import (
     BatteryAction,
@@ -204,7 +205,7 @@ def solve(
     # ----- Solve -----
     solver = cp_model.CpSolver()
     # Set a reasonable time limit (competition allows 30s per request)
-    solver.parameters.max_time_in_seconds = 20.0
+    solver.parameters.max_time_in_seconds = float(settings.solver_timeout_seconds)
     status = solver.solve(model)
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
