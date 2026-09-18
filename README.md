@@ -10,6 +10,9 @@ GridWise ensures grid resilience by minimizing electricity costs using battery a
 
 The system is deployed as a strict `FastAPI` REST backend. All operator notes are deterministically parsed by `Google Gemini 3 Flash` into constrained JSON structures before entering the compiler.
 
+## 🌐 Live Endpoint
+The API is live and accessible at: **[https://bup-cse-fest-hackathon-2026.onrender.com](https://bup-cse-fest-hackathon-2026.onrender.com)**
+
 ## 🗺️ 2. Architecture Diagram
 
 ```mermaid
