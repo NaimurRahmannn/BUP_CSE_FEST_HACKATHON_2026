@@ -1,0 +1,4 @@
+.venv/
+docs/
+Agents.md
+__pycache__/
