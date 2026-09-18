@@ -50,7 +50,7 @@ def parse_and_compile(
             parsed = _directive_adapter.validate_python(raw)
             parsed_directives.append(parsed)
         except ValidationError as e:
-            # Map Pydantic ValidationErrors to custom Phase 2.5 errors
+            # Map Pydantic ValidationErrors to custom errors
             for err in e.errors():
                 loc = err.get("loc", ())
                 err_type = err.get("type", "")

@@ -1,7 +1,7 @@
 """
 GridWise Directive Compiler — Structured Errors
 
-Custom exceptions for robust error handling in Phase 2.5+.
+Custom exceptions for robust error handling.
 """
 
 from __future__ import annotations

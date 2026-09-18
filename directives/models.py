@@ -2,8 +2,8 @@
 GridWise Directive Compiler — Data Models
 
 These models define the expected structure of the incoming JSON directives
-produced by the LLM (Phase 3). They provide strict validation before
-the directives are compiled into constraints for the optimizer (Phase 1).
+produced by the LLM. They provide strict validation before
+the directives are compiled into constraints for the optimizer.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ class BaseDirectiveModel(BaseModel):
     """Base class for incoming directives."""
     type: str
 
-    # Phase 2.5 Traceability Metadata
+    # Traceability Metadata
     source_note_id: Optional[int] = None
     raw_text: Optional[str] = None
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)

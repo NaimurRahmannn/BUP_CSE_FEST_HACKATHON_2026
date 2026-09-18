@@ -82,8 +82,8 @@ class BatteryConfig(BaseModel):
 class DirectiveConstraint(BaseModel):
     """A structured directive constraint produced by the directive compiler.
 
-    This is the interface between the LLM interpretation layer (Phase 2+)
-    and the optimization engine (Phase 1). The solver consumes these
+    This is the interface between the LLM interpretation layer
+    and the optimization engine. The solver consumes these
     constraints directly — it never sees natural language.
 
     Fields mirror the competition's structured_adjustment shapes
@@ -101,7 +101,7 @@ class DirectiveConstraint(BaseModel):
     # max_grid_window: maximum grid import per hour (kWh)
     max_grid_kwh: Optional[float] = Field(default=None, ge=0)
 
-    # ----- Phase 2.5 Traceability Metadata -----
+    # ----- Traceability Metadata -----
     source_note_id: Optional[int] = Field(default=None, description="ID of the source operator note")
     raw_text: Optional[str] = Field(default=None, description="Original text of the operator note")
     confidence: Optional[float] = Field(default=None, description="LLM extraction confidence")

@@ -215,7 +215,7 @@ def test_full_pipeline_trace():
 
 
 # ===========================================================================
-# Phase 4.5 API Hardening Tests
+# API Hardening Tests
 # ===========================================================================
 
 def test_config_loading():

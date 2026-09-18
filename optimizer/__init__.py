@@ -1,7 +1,7 @@
 """
 GridWise Energy Optimization Engine
 
-Public API for the optimization engine (Phase 1).
+Public API for the optimization engine.
 
 Usage:
     from optimizer import optimize_energy

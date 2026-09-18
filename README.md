@@ -15,9 +15,9 @@ The system is deployed as a strict `FastAPI` REST backend. All operator notes ar
 ```mermaid
 graph TD
     A[HTTP Request] -->|Pydantic Validation| B(API Service)
-    B -->|Operator Notes| C[Phase 3: LLM Interpretation]
-    C -->|Raw JSON| D[Phase 2: Directive Compiler]
-    D -->|Compiled Constraints| E[Phase 1: CP-SAT Optimizer]
+    B -->|Operator Notes| C[LLM Interpretation]
+    C -->|Raw JSON| D[Directive Compiler]
+    D -->|Compiled Constraints| E[CP-SAT Optimizer]
     B -->|Energy Scenario| E
     E -->|Raw Schedule| F[Independent Validator]
     F -->|Verified Plan| B

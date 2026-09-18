@@ -1,5 +1,5 @@
 """
-Tests for the GridWise LLM Interpretation Layer (Phase 3).
+Tests for the GridWise LLM Interpretation Layer.
 
 Covers:
  1. Clear solar reduction
@@ -194,7 +194,7 @@ def test_end_to_end_integration():
     assert result.success is True
 
 # ===========================================================================
-# Phase 3.5 Hardening Tests
+# Hardening Tests
 # ===========================================================================
 
 def test_gemini_timeout():

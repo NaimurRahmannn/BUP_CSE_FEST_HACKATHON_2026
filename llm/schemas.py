@@ -2,7 +2,7 @@
 GridWise LLM Interpretation Layer — Schemas
 
 Defines the Pydantic schema used to force the LLM into generating
-structured JSON that matches the Phase 2 Directive Compiler expectations.
+structured JSON that matches the Directive Compiler expectations.
 """
 
 from typing import Literal, Optional
@@ -15,7 +15,7 @@ class LLMDirectiveOutput(BaseModel):
     
     This flat structure is easy for the LLM to understand and populate.
     When dumped to JSON (excluding None values), it produces the exact
-    discriminated union shape expected by Phase 2.
+    discriminated union shape expected by the compiler.
     """
     
     type: Literal[
@@ -75,6 +75,6 @@ class LLMDirectiveOutput(BaseModel):
             raise ValueError(f"Energy limit {v} cannot be negative")
         return v
 
-    def to_phase2_dict(self) -> dict:
+    def to_compiler_dict(self) -> dict:
         """Converts to a dictionary suitable for directives.parse_and_compile."""
         return self.model_dump(exclude_none=True)

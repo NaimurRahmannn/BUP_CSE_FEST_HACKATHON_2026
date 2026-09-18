@@ -235,7 +235,7 @@ def test_randomized_directive_validation(seed: int):
 
 
 # ===========================================================================
-# Phase 2.5 Hardening Tests
+# Hardening Tests
 # ===========================================================================
 
 def test_metadata_preserved():

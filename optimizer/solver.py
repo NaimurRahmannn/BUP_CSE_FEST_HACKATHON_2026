@@ -67,7 +67,7 @@ def solve(
     Args:
         scenario: The energy scenario with hourly data and battery config.
         directives: Optional list of structured directive constraints
-                    (from the directive compiler in Phase 2+).
+                    (from the directive compiler).
 
     Returns:
         OptimizationResult with the optimal schedule or failure info.
